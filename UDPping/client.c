@@ -6,13 +6,33 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 
 #define MSGSIZE 128 
+#define RECV_WAIT_TIME 1 
+#define debug 
+
 typedef struct sockaddr SA; 
 
 static void sig_alrm(int t){
 	return ; 
+}
+
+int Select(int sockfd, int wait_sec)
+{
+	fd_set fdset; 
+	struct timeval timeout; 
+	
+	FD_ZERO(&fdset); 
+	FD_SET(sockfd, &fdset); 
+	
+	timeout.tv_sec = wait_sec; 
+	timeout.tv_usec = 0; 
+	
+	int ret = select(sockfd+1, &fdset, NULL, NULL, &timeout); 
+	
+	return ret; 
 }
 
 int main()
@@ -29,18 +49,32 @@ int main()
 
 	char msg[MSGSIZE]; 
 	time_t begin, end; 
-	signal(SIGALRM, sig_alrm); 
+	//signal(SIGALRM, sig_alrm); 
 	for(int i = 0; i < 10; i++){
 		begin = time(NULL); 
-		sprintf(msg, "ping %d %s", i+1, asctime(localtime(&begin))); 
+		sprintf(msg, "ping %d %s", i+1, asctime(localtime(&begin)));	 
 		sendto(clientSocket, msg, strlen(msg), 0, (SA*)&destSockaddr, destSocklen); 
-		alarm(1); 
-		if(recvfrom(clientSocket, msg, MSGSIZE, 0, (SA*)&destSockaddr, &destSocklen) < 0){
-			printf("seq[%d]: TIEE OUT", i+1); 
+		//alarm(1); 
+		/* set TIME OUT for clientSocket */
+		int ret = Select(clientSocket, RECV_WAIT_TIME); 
+		#ifdef debug
+		printf("ret is %d \n", ret); 
+		#endif 
+		if(ret > 0){
+			recvfrom(clientSocket, msg, MSGSIZE, 0, (SA*)&destSockaddr, &destSocklen); 
+			end = time(NULL); 
+			printf("seq[%d]: RTT %ds\n", i+1, end-begin); 
+		}
+		else if(ret == 0){
+			printf("seq[%d]: TIEE OUT\n", i+1); 
 			continue; 
 		}
-		end  = time(NULL); 
-		printf("seq[%d]: RTT %ds\n", i+1, end-begin); 
+		/*
+		if(recvfrom(clientSocket, msg, MSGSIZE, 0, (SA*)&destSockaddr, &destSocklen) < 0){
+		}
+		*/
+		//end  = time(NULL); 
+		//printf("seq[%d]: RTT %ds\n", i+1, end-begin); 
 	}
 	
 	

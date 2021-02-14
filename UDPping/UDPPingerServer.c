@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 
 #define BUFSIZE 128
 
@@ -25,7 +26,9 @@ int main()
 	struct sockaddr_in sockaddr, clisockaddr; 
 
 	socklen_t socklen = sizeof(sockaddr); 
-	socklen_t clisocklen; 	
+	memset(&clisockaddr, 0, sizeof(clisockaddr)); 
+	socklen_t clisocklen = sizeof(clisockaddr); 
+	
 
 	sockaddr.sin_family = AF_INET; 
 	sockaddr.sin_port = htons(12000); 
@@ -46,7 +49,9 @@ int main()
 		}	
 		/* otherwise, the server responses */
 		printf("recv message: %s\n", buf); 
-		sendto(serverSocket, buf, BUFSIZE, 0, (struct sockaddr*)&clisockaddr, clisocklen); 
+		if(sendto(serverSocket, buf, BUFSIZE, 0, (struct sockaddr*)&clisockaddr, clisocklen) < 0){
+			perror("sendto"); 
+		}
 		
 	}
 	return 0; 
